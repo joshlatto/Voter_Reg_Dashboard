@@ -1,0 +1,8 @@
+# Ignore PDFs
+*.pdf
+
+# Ignore the data
+raw_data_through_august_2016_dates_shifted_to_first_of_next_month.txt
+
+# Ignore the rsconnect directory
+rsconnect

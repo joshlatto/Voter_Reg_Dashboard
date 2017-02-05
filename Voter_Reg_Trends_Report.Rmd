@@ -1,0 +1,113 @@
+<!--
+Copyright 2016 Josh Latto
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+---
+title: "Voter Registration Trends Report"
+output: pdf_document
+params: 
+  reg_data: NA
+  hd: NA
+  sd: NA
+  cd: NA
+  county: NA
+  raw_county: NA
+  raw_cd: NA
+  raw_hd: NA
+  raw_sd: NA
+---
+
+---
+subtitle: "Geographies Selected: County `r params$raw_county`, CD `r params$raw_cd`, SD `r params$raw_sd`, HD `r params$raw_hd`"
+---
+
+```{r , echo=FALSE, message=FALSE}
+library(tcltk)
+library(sqldf)
+library(knitr)
+library(DT)
+library(data.table)
+library(ggplot2)
+library(scales)
+```
+
+```{r, fig.height=3, echo=FALSE, message=FALSE}
+
+reg_in <- params$reg_data
+
+reg_in$year_month <- as.Date(reg_in$year_month,"%Y-%m-%d")
+
+
+## Total Registrants Over Time
+
+total_reg_query <- sprintf("select year_month, sum(count) as registrants from reg_in where county in %s and cd in %s and sd in %s and hd in %s group by 1 order by 1 desc", params$county, params$cd, params$sd, params$hd)
+
+reg_collapsed <- sqldf(total_reg_query)
+
+ggplot(data = reg_collapsed, aes(x=year_month, y=registrants)) +
+  geom_line(size = 1) +
+  geom_point(size = 1.25) +
+  scale_y_continuous(labels=comma) + 
+  scale_color_manual(values=colors) + 
+  xlab('') +
+  ylab('Registrants')+
+  ggtitle('Total Registrants')
+
+## Registrants by Party
+
+query <- sprintf("select year_month, party, sum(count) as registrants from reg_in where county in %s and cd in %s and sd in %s and hd in %s group by 1,2 order by 1 desc", params$county, params$cd, params$sd, params$hd)
+
+reg_collapsed_by_party <- sqldf(query)
+
+colors <- c('Democrat' = 'blue', 'Republican' = 'red', 'Independent Party' = 'green', 'NAV+' = 'purple')
+
+ggplot(data = reg_collapsed_by_party, aes(x=year_month, y=registrants)) +
+  geom_line(aes(color=party, group=party), size = 1) +
+  geom_point(aes(color=party, shape=party, group=party), size = 1.25) +
+  scale_y_continuous(labels=comma) + 
+  scale_color_manual(values=colors) + 
+  xlab('') +
+  ylab('Registrants')+
+  ggtitle('Registrants by Party')
+
+## Share of Registrants by Party
+
+percent_total_query <- sprintf("select year_month, sum(count) as registrants from reg_in where county in %s and cd in %s and sd in %s and hd in %s group by 1 order by 1 desc", params$county, params$cd, params$sd, params$hd)
+
+total_reg <- sqldf(percent_total_query)
+
+reg_by_party_for_percentage_chart <- sqldf("
+  select a.*, b.registrants as total_reg
+  from reg_collapsed_by_party a
+  left join total_reg b on a.year_month = b.year_month;
+  ")
+
+reg_by_party_for_percentage_chart$share <- reg_by_party_for_percentage_chart$registrants / reg_by_party_for_percentage_chart$total_reg
+
+
+ggplot(data = reg_by_party_for_percentage_chart, aes(x=year_month, y=share)) +
+  geom_line(aes(color=party, group=party), size = 1) +
+  geom_point(aes(color=party, group=party, shape=party), size = 1.25) +
+  scale_y_continuous(labels=percent) +
+  scale_color_manual(values=colors) +
+  xlab('') +
+  ylab('Share of Total Registrants') +
+  ggtitle('Share of Registered Voters by Party')
+
+  
+   
+ 
+``` 
